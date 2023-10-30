@@ -1,0 +1,7 @@
+.demo {
+    -fx-background-color: #383838;
+}
+
+.demo .timeline {
+    -fx-pref-height: 600px;
+}
