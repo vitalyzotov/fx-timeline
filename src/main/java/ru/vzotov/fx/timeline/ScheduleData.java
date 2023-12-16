@@ -1,9 +1,8 @@
 package ru.vzotov.fx.timeline;
 
-import javafx.beans.property.LongProperty;
+import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.ObjectProperty;
-import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleLongProperty;
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.Node;
 
@@ -14,7 +13,7 @@ public class ScheduleData {
     public ScheduleData() {
     }
 
-    public ScheduleData(LocalDate start, LocalDate finish, long value) {
+    public ScheduleData(LocalDate start, LocalDate finish, int value) {
         setStart(start);
         setFinish(finish);
         setValue(value);
@@ -40,17 +39,17 @@ public class ScheduleData {
     /**
      * Value
      */
-    private final LongProperty value = new SimpleLongProperty();
+    private final IntegerProperty value = new SimpleIntegerProperty();
 
-    public long getValue() {
+    public int getValue() {
         return value.get();
     }
 
-    public LongProperty valueProperty() {
+    public IntegerProperty valueProperty() {
         return value;
     }
 
-    public void setValue(long value) {
+    public void setValue(int value) {
         this.value.set(value);
     }
 

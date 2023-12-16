@@ -26,8 +26,6 @@ import javafx.util.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.vzotov.calendar.domain.model.DateRange;
-import ru.vzotov.fx.timeline.MoneyFormat;
-import ru.vzotov.fx.timeline.NiceScale;
 import ru.vzotov.fx.timeline.Series;
 import ru.vzotov.fx.timeline.Timeline;
 
@@ -37,21 +35,19 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.ServiceLoader;
 
 import static ru.vzotov.fx.utils.LayoutUtils.styled;
 
 
-public class TimelineSkin<T extends Timeline> extends SkinBase<T> {
+public class TimelineSkin<D, V extends Comparable<V>, T extends Timeline<D, V>> extends SkinBase<T> {
 
     private static final Logger log = LoggerFactory.getLogger(TimelineSkin.class);
 
     public static final double SELECTION_HANDLE_WIDTH = 10.0;
     public static final double SELECTION_LABELS_PADDING = 8.0;
 
-    private static final int HEIGHT_EXPANDED = 400;
     private static final double TOP_PADDING = 16;
-    private static final double VALUE_AXIS_PADDING = 16;
+    public static final double VALUE_AXIS_PADDING = 16;
     private static final double BASELINE_PADDING = TOP_PADDING * 1.5;
     private static final Duration DURATION = Duration.millis(300);
 
@@ -62,7 +58,6 @@ public class TimelineSkin<T extends Timeline> extends SkinBase<T> {
 
 
     private final DateTimeFormatter monthLabelFormatter = DateTimeFormatter.ofPattern("LLLL yyyy");
-    private final MoneyFormat moneyFormatter = ServiceLoader.load(MoneyFormat.class).findFirst().orElseThrow();
 
     private final Group baselineGroup;
     private final TranslateTransition moveBaselineToCenter;
@@ -104,6 +99,10 @@ public class TimelineSkin<T extends Timeline> extends SkinBase<T> {
 
     public TimelineSkin(T control) {
         super(control);
+
+        if (control.getValueAxisBuilder() == null) {
+            throw new IllegalStateException("valueAxisBuilder is required");
+        }
 
         baselineGroup = new Group();
         baselineGroup.setManaged(false);
@@ -175,6 +174,11 @@ public class TimelineSkin<T extends Timeline> extends SkinBase<T> {
         valueAxis.setTranslateY(TOP_PADDING);
         getChildren().add(valueAxis);
 
+        control.parentProperty().addListener(it -> {
+            bindAxisToScrollPane();
+        });
+        bindAxisToScrollPane();
+
         // ====================================================================================  date axis
 
         createStaticLines();
@@ -183,6 +187,9 @@ public class TimelineSkin<T extends Timeline> extends SkinBase<T> {
             createStaticLines();
             control.requestLayout();
         });
+
+
+        // ====================================================================================  selection
 
         control.selectedRangeProperty().addListener((observable, oldValue, newValue) -> {
             updateSelectionLabels(newValue);
@@ -194,13 +201,22 @@ public class TimelineSkin<T extends Timeline> extends SkinBase<T> {
         });
 
         control.addEventHandler(MouseEvent.MOUSE_CLICKED, evt -> {
-            if (evt.isStillSincePress()) control.selectMonth(control.getDateAt(evt.getX()));
+            if (evt.isStillSincePress()) {
+                final LocalDate date = control.getDateAt(evt.getX());
+                if(evt.isControlDown()) {
+                    control.selectYear(date);
+                } else {
+                    control.selectMonth(date);
+                }
+            }
         });
+        updateSelectionLabels(control.getSelectedRange());
 
-        control.getSeries().addListener((ListChangeListener<? super Series>) c -> {
+        // ====================================================================================  series
+        control.getSeries().addListener((ListChangeListener<? super Series<? extends D, V>>) c -> {
             while (c.next()) {
-                for (Series s : c.getRemoved()) {
-                    var p = s.getNode();
+                for (Series<? extends D, V> s : c.getRemoved()) {
+                    Node p = s.getNode();
                     if (p != null) getChildren().remove(p);
                 }
 
@@ -218,29 +234,28 @@ public class TimelineSkin<T extends Timeline> extends SkinBase<T> {
 
         initialPrefHeight = control.getPrefHeight();
         log.debug("Initial pref height = {}", initialPrefHeight);
-        control.hasSeriesProperty().addListener(it -> {
-            var has = control.isHasSeries();
-            moveBaseline(control.isHasSeries());
+        control.hasSeriesProperty().addListener(it -> updateHeight());
+        control.expandedHeightProperty().addListener(it -> updateHeight());
+        moveBaseline(control.isHasSeries());
+    }
 
-            final javafx.animation.Timeline timeline = new javafx.animation.Timeline();
-            final ObservableList<KeyFrame> frames = timeline.getKeyFrames();
-            frames.add(new KeyFrame(DURATION, new KeyValue(control.prefHeightProperty(), has ? HEIGHT_EXPANDED : initialPrefHeight)));
-            timeline.setOnFinished(finish -> {
-                for (Series s : control.getSeries()) {
-                    s.updatePath(control, getChartHeight());
-                }
-                createValueTicks();
-                control.requestLayout();
-            });
-            timeline.play();
-        });
-        moveBaseline(false);
+    private void updateHeight() {
+        T control = getSkinnable();
+        log.debug("Update TL height");
+        boolean has = control.isHasSeries();
+        moveBaseline(control.isHasSeries());
 
-        control.parentProperty().addListener(it -> {
-            bindAxisToScrollPane();
+        final javafx.animation.Timeline timeline = new javafx.animation.Timeline();
+        final ObservableList<KeyFrame> frames = timeline.getKeyFrames();
+        frames.add(new KeyFrame(DURATION, new KeyValue(control.prefHeightProperty(), has ? control.getExpandedHeight() : initialPrefHeight)));
+        timeline.setOnFinished(finish -> {
+            for (Series<? extends D, V> s : control.getSeries()) {
+                s.update(control, getChartHeight());
+            }
+            createValueTicks();
+            control.requestLayout();
         });
-        bindAxisToScrollPane();
-        updateSelectionLabels(control.getSelectedRange());
+        timeline.play();
     }
 
     /**
@@ -250,23 +265,23 @@ public class TimelineSkin<T extends Timeline> extends SkinBase<T> {
         T control = getSkinnable();
         final double height = getChartHeight();
 
-        for (Series s : control.getSeries()) {
+        for (Series<? extends D, V> s : control.getSeries()) {
             Node p = s.getNode();
             if (p != null) {
-                s.updatePath(control, height);
+                s.update(control, height);
             } else {
-                getChildren().add(s.buildPath(control, height));
+                getChildren().add(s.build(control, height));
             }
         }
 
     }
 
-    private void buildPathForSeries(Collection<? extends Series> c) {
+    private void buildPathForSeries(Collection<? extends Series<? extends D, V>> c) {
         T control = getSkinnable();
-        for (Series s : c) {
-            var p = s.getNode();
+        for (Series<? extends D, V> s : c) {
+            Node p = s.getNode();
             if (p == null) {
-                getChildren().add(s.buildPath(control, getChartHeight()));
+                getChildren().add(s.build(control, getChartHeight()));
             }
         }
     }
@@ -289,6 +304,9 @@ public class TimelineSkin<T extends Timeline> extends SkinBase<T> {
         return chartHeight;
     }
 
+    /**
+     * Располагает ось значений так, чтобы ее было видно при текущей позиции прокрутки
+     */
     private void bindAxisToScrollPane() {
         T control = getSkinnable();
         ScrollPane scrollPane = findScrollPane(control.getParent());
@@ -305,7 +323,7 @@ public class TimelineSkin<T extends Timeline> extends SkinBase<T> {
         }
     }
 
-    private ScrollPane findScrollPane(Parent parent) {
+    private static ScrollPane findScrollPane(Parent parent) {
         if (parent == null || parent instanceof ScrollPane) {
             return (ScrollPane) parent;
         } else {
@@ -363,37 +381,24 @@ public class TimelineSkin<T extends Timeline> extends SkinBase<T> {
 
     private void createValueTicks() {
         T control = getSkinnable();
-        double height = getChartHeight();
-
         valueAxis.getChildren().removeAll(valueTicks);
         valueAxis.getChildren().removeAll(valueTickLabels);
         valueTicks.clear();
         valueTickLabels.clear();
 
-        double max = 0.0;
-        for (Series s : control.getSeries()) {
-            max = Math.max(max, s.getMaxValue());
-        }
-        NiceScale axis = new NiceScale(0.0, max);
-        double space = axis.getTickSpacing();
-        double tmin = axis.getNiceMin();
-        double scale = height / max;
-        for (double v = tmin + space; v <= max; v += space) {
-            final double y = snapPositionY(height - v * scale) - .5;
-            final Line tick = styled(new Line(0, y, 0, y), "tick");
-            tick.endXProperty().bind(viewportWidthProperty());
-            valueTicks.add(tick);
-            valueAxis.getChildren().add(tick);
-
-            Label tickLabel = new Label(moneyFormatter.format(v));
-            tickLabel.setManaged(true);
-            tickLabel.setTranslateX(VALUE_AXIS_PADDING);
-            tickLabel.setTranslateY(y - 6.0);
-            valueTickLabels.add(tickLabel);
-            valueAxis.getChildren().add(tickLabel);
-
-        }
-
+        V max = control.getSeries().stream().map(Series::getMaxValue).max(V::compareTo).orElse(null);
+        control.getValueAxisBuilder().buildTicks(
+                getChartHeight(),
+                max,
+                this::snapPositionY,
+                viewportWidthProperty(),
+                (tick, label) -> {
+                    valueTicks.add(tick);
+                    valueAxis.getChildren().add(tick);
+                    valueTickLabels.add(label);
+                    valueAxis.getChildren().add(label);
+                }
+        );
     }
 
     private void createStaticLines() {
@@ -439,8 +444,8 @@ public class TimelineSkin<T extends Timeline> extends SkinBase<T> {
 
         layoutSelection(contentX, contentY, contentWidth, contentHeight);
 
-        for (Series s : control.getSeries()) {
-            var p = s.getNode();
+        for (Series<? extends D, V> s : control.getSeries()) {
+            Node p = s.getNode();
             if (p != null) {
                 p.setTranslateX(contentX);
                 p.setTranslateY(TOP_PADDING);

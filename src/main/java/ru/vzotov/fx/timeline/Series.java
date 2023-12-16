@@ -1,21 +1,18 @@
 package ru.vzotov.fx.timeline;
 
-import javafx.beans.property.ReadOnlyDoubleProperty;
-import javafx.beans.property.ReadOnlyDoubleWrapper;
+import javafx.beans.property.ReadOnlyObjectProperty;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.Node;
-import javafx.scene.shape.PathElement;
-import ru.vzotov.fx.utils.Data;
 
-import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Collections;
 
 
-public abstract class Series<D> {
+public abstract class Series<D, V extends Comparable<V>> {
 
     public Series() {
         this("", Collections.emptyList());
@@ -35,17 +32,17 @@ public abstract class Series<D> {
     /**
      * Max value in series
      */
-    private final ReadOnlyDoubleWrapper maxValue = new ReadOnlyDoubleWrapper(this, "maxValue", 0.0);
+    private final ReadOnlyObjectWrapper<V> maxValue = new ReadOnlyObjectWrapper<>(this, "maxValue", null);
 
-    public double getMaxValue() {
+    public V getMaxValue() {
         return maxValue.get();
     }
 
-    public ReadOnlyDoubleProperty maxValueProperty() {
+    public ReadOnlyObjectProperty<V> maxValueProperty() {
         return maxValue.getReadOnlyProperty();
     }
 
-    protected void setMaxValue(double maxValue) {
+    protected void setMaxValue(V maxValue) {
         this.maxValue.set(maxValue);
     }
 
@@ -76,20 +73,23 @@ public abstract class Series<D> {
     }
 
     /**
-     * Обновляет кривую графика
-     * @param parent
-     * @param height
+     * Обновляет график
+     *
+     * @param temporalAxis шкала времени
+     * @param height высота графика
      * @return
      */
-    public abstract Node updatePath(Timeline parent, double height);
+    @SuppressWarnings("UnusedReturnValue")
+    public abstract Node update(TemporalAxis temporalAxis, double height);
 
     /**
-     * Строит новую кривую
-     * @param parent
-     * @param height
+     * Строит новый график
+     *
+     * @param temporalAxis шкала времени
+     * @param height высота графика
      * @return
      */
-    public abstract Node buildPath(Timeline parent, double height);
+    public abstract Node build(TemporalAxis temporalAxis, double height);
 
 
 }

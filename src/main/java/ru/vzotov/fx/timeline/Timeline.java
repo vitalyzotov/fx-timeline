@@ -16,9 +16,14 @@ import ru.vzotov.fx.timeline.skin.TimelineSkin;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.Objects;
 
-public class Timeline extends Control {
+/**
+ * @param <D> тип данных графика
+ * @param <V> тип значений для данных
+ */
+public class Timeline<D, V extends Comparable<V>> extends Control implements TemporalAxis {
 
     private static final String DEFAULT_STYLE_CLASS = "timeline";
 
@@ -35,37 +40,62 @@ public class Timeline extends Control {
     }
 
     /**
-     * Возвращает координату x для заданной даты
-     *
-     * @param date дата, для которой нужно определить координату
-     * @return координата x
+     * Value axis builder
      */
+    private final ObjectProperty<ValueAxisBuilder<V>> valueAxisBuilder = new SimpleObjectProperty<>();
+
+    public ValueAxisBuilder<V> getValueAxisBuilder() {
+        return valueAxisBuilder.get();
+    }
+
+    public ObjectProperty<ValueAxisBuilder<V>> valueAxisBuilderProperty() {
+        return valueAxisBuilder;
+    }
+
+    public void setValueAxisBuilder(ValueAxisBuilder<V> valueAxisBuilder) {
+        this.valueAxisBuilder.set(valueAxisBuilder);
+    }
+
+    @Override
     public double getLocation(LocalDate date) {
         final long days = ChronoUnit.DAYS.between(getRange().start(), date);
         return getLeftGap() + days * getDayWidth();
     }
 
-    /**
-     * Возвращает дату для заданной координаты
-     *
-     * @param x координата
-     * @return дата для переданной координаты
-     */
+    @Override
     public LocalDate getDateAt(double x) {
         final long days = (long) ((x - getLeftGap()) / getDayWidth());
         return getRange().start().plusDays(days);
     }
 
     public void selectMonth(LocalDate date) {
-        setSelectedRange(new DateRange<>(date.withDayOfMonth(1), date.withDayOfMonth(date.lengthOfMonth())));
+        final DateRange<LocalDate> range = getRange();
+        final DateRange<LocalDate> r = new DateRange<>(
+                date.with(TemporalAdjusters.firstDayOfMonth()),
+                date.with(TemporalAdjusters.lastDayOfMonth()));
+        final DateRange<LocalDate> target = r.intersect(range, ChronoUnit.DAYS);
+        if(target != null) {
+            setSelectedRange(target);
+        }
+    }
+
+    public void selectYear(LocalDate date) {
+        final DateRange<LocalDate> range = getRange();
+        final DateRange<LocalDate> r = new DateRange<>(
+                date.with(TemporalAdjusters.firstDayOfYear()),
+                date.with(TemporalAdjusters.lastDayOfYear()));
+        final DateRange<LocalDate> target = r.intersect(range, ChronoUnit.DAYS);
+        if(target != null) {
+            setSelectedRange(target);
+        }
     }
 
     /**
      * Данные для отрисовки графика
      */
-    private final ObservableList<Series> series = FXCollections.observableArrayList();
+    private final ObservableList<Series<? extends D, V>> series = FXCollections.observableArrayList();
 
-    public ObservableList<Series> getSeries() {
+    public ObservableList<Series<? extends D, V>> getSeries() {
         return series;
     }
 
@@ -80,6 +110,23 @@ public class Timeline extends Control {
 
     public ReadOnlyBooleanProperty hasSeriesProperty() {
         return hasSeries.getReadOnlyProperty();
+    }
+
+    /**
+     * Expanded height
+     */
+    private final DoubleProperty expandedHeight = new SimpleDoubleProperty(400.0);
+
+    public double getExpandedHeight() {
+        return expandedHeight.get();
+    }
+
+    public DoubleProperty expandedHeightProperty() {
+        return expandedHeight;
+    }
+
+    public void setExpandedHeight(double expandedHeight) {
+        this.expandedHeight.set(expandedHeight);
     }
 
     /**

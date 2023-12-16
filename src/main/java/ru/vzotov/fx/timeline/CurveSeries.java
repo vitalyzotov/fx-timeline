@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static ru.vzotov.fx.utils.LayoutUtils.styled;
 
-public class CurveSeries extends Series<Data<LocalDate, Node>> {
+public class CurveSeries extends Series<Data<LocalDate, Node>, Double> {
 
     public CurveSeries() {
     }
@@ -28,7 +28,7 @@ public class CurveSeries extends Series<Data<LocalDate, Node>> {
     }
 
     @Override
-    public Node updatePath(Timeline parent, double height) {
+    public Node update(TemporalAxis temporalAxis, double height) {
         PathElement e = null;
 
         var maxRef = new AtomicReference<>(0.0);
@@ -41,7 +41,7 @@ public class CurveSeries extends Series<Data<LocalDate, Node>> {
 
         for (int i = 0, max = sorted.size() - 1; i <= max; i++) {
             var d = sorted.get(i);
-            double x = parent.getLocation(d.getX());
+            double x = temporalAxis.getLocation(d.getX());
             double y = height - height * d.getValue() / vmax;
             var current = getPathOfData(d);
 
@@ -73,7 +73,7 @@ public class CurveSeries extends Series<Data<LocalDate, Node>> {
     }
 
     @Override
-    public Node buildPath(Timeline parent, double height) {
+    public Node build(TemporalAxis temporalAxis, double height) {
         PathElement e = null;
         final Path p = styled(new Path(), "series");
         final ObservableList<PathElement> elements = p.getElements();
@@ -93,7 +93,7 @@ public class CurveSeries extends Series<Data<LocalDate, Node>> {
 
         for (int i = 0, max = sorted.size() - 1; i <= max; i++) {
             var d = sorted.get(i);
-            double x = parent.getLocation(d.getX());
+            double x = temporalAxis.getLocation(d.getX());
             double y = height - height * d.getValue() / vmax;
             buildNode(d, i, i == max, e, x, y);
             e = getPathOfData(d);
@@ -104,7 +104,7 @@ public class CurveSeries extends Series<Data<LocalDate, Node>> {
         return node;
     }
 
-    private void buildNode(Data<LocalDate, Node> data, int index, boolean last, PathElement prev, double x, double y) {
+    protected void buildNode(Data<LocalDate, Node> data, int index, boolean last, PathElement prev, double x, double y) {
         PathElement path;
 
         final Circle node = styled(new Circle(x, y, 4), "data");

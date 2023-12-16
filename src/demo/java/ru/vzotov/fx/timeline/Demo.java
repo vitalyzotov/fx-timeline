@@ -9,7 +9,6 @@ import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.vzotov.fx.utils.Data;
-import ru.vzotov.fx.utils.LayoutUtils;
 import ru.vzotov.fxtheme.FxTheme;
 
 import java.time.LocalDate;
@@ -31,9 +30,11 @@ public class Demo extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-        final Timeline timeline = new Timeline();
+        final Timeline<Data<LocalDate, Node>, Double> timeline = new Timeline<>();
+        timeline.setValueAxisBuilder(new DefaultValueAxisBuilder(Double::toString));
+
         List<Data<LocalDate, Node>> data = new ArrayList<>();
-        for(int i = 0; i < 16; i++) {
+        for (int i = 0; i < 16; i++) {
             LocalDate month = YearMonth.now().minusMonths(i).atEndOfMonth();
             data.add(new Data<>(month, Math.abs(Math.random()) * 30000d));
         }
