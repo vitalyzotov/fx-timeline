@@ -15,7 +15,7 @@
         <javafx.version>17.0.1</javafx.version>
         <junit.version>5.8.2</junit.version>
         <slf4j.version>1.7.36</slf4j.version>
-        <calendar.model.version>2.1-SNAPSHOT</calendar.model.version>
+        <calendar.model.version>2.1</calendar.model.version>
     </properties>
 
     <dependencies>
@@ -58,7 +58,7 @@
         <dependency>
             <groupId>ru.vzotov</groupId>
             <artifactId>fx-utils</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>1.1</version>
         </dependency>
 
         <dependency>
@@ -77,7 +77,7 @@
         <dependency>
             <groupId>ru.vzotov</groupId>
             <artifactId>fx-theme-dark</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>1.0</version>
         </dependency>
 
     </dependencies>
@@ -133,8 +133,8 @@
                 <version>1.13.0</version>
                 <configuration>
                     <gitFlowConfig>
-                        <productionBranch>main</productionBranch>
-                        <developmentBranch>main</developmentBranch>
+                        <productionBranch>master</productionBranch>
+                        <developmentBranch>master</developmentBranch>
                     </gitFlowConfig>
                 </configuration>
             </plugin>
